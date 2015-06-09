@@ -6,6 +6,64 @@
 #+LATEX_CLASS_OPTIONS:
 #+LATEX_HEADER:
 
-* 
-**
-*** 
+* 函数
+就跟其他语言里一样,函数提供了用于 *抽象和功能化的基本方法* 。
+
+而且，尽管宏对于Lisp风格有着重要的作用，但最终所有实际的功能还是由函数来提供的。 *宏运行在编译期* ，因此它们生成的代码，即当所有宏被展开后将实际构成程序的那些代码，将完全由对函数和特殊操作符的调用所构成。更不用说，宏本身也是函数了---尽管这种函数是用来生成代码，而不是用来完成实际的程序操作的。
+
+** 定义新函数
+函数一般使用 *DEFUN* 宏来定义。
+
+(defun name (parameter*)
+  "Optional documentation string."
+  body-form*)
+
+任何符号都可用作函数名。通常函数名仅包含字典字符和连字符，但是在特定的命名约定里，其他字符也允许使用。例如，将值的一种类型转换成另一种的函数有时会在名字中使用->，一个将字符串转换成微件(widget)的函数可能叫做string->widget。最重要的一个命名约定是在第2章里提到的那个，即要用连字符而不是下划线或内部大写来构造复合名称。因此，frob-widget比frob_widget或frobwidget更具有Lisp风格。
+
+最后，一个DEFUN的主体可由任意数量的Lisp表达式所构成。
+
+(defun hello-world ()
+  (format t "hello, world"))
+
+(defun verbose-sum (x y)
+  "Sum any two numbers after printing a message."
+  (format t "Summing ~d and ~d ~%" x y)
+  (+ x y))
+
+** 函数形参列表
+** 可选参数
+
+(defun foo (a b &optional c d) (list a b c d))
+
+(defun foo (a &optional (b 10)) (list a b))
+
+(defun make-rectangle (width &optional (height width)) ...)
+
+** 剩余形参
+
+(defun format (stream string &rest values) ...)
+(defun + (&rest numbers) ...)
+
+** 关键字形参
+
+(defun foo (&key a b c) (list a b c))
+
+** 混合不同的形参类型
+
+(defun foo (x &optional y &key z) (list x y z))
+
+** 函数返回值
+
+RETURN-FROM
+
+(defun foo (n)
+  (dotimes (i 10)
+    (dotimes (j 10)
+      (when (> (* i j) n)
+        (return-from foo (list i j))))))
+
+** 作为数据的函数---高阶函数
+
+** 匿名函数
+
+
