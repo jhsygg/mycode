@@ -1,4 +1,4 @@
-#+TITLE:     
+#+TITLE:    Practical Common Lisp     
 #+AUTHOR:    
 #+EMAIL:     
 #+DATE:      
@@ -31,7 +31,10 @@
   (+ x y))
 
 ** 函数形参列表
-** 可选参数
+必要形参。当函数被调用时，必须为它的每一个必要形参都提供一个实参。每一个形参被绑定到对应的实参上。如果一个函数以过少或过多的实参来调用的话，Lisp就会报错。
+** 可选参数(p65)
+
+*&optional*
 
 (defun foo (a b &optional c d) (list a b c d))
 
@@ -40,15 +43,20 @@
 (defun make-rectangle (width &optional (height width)) ...)
 
 ** 剩余形参
+可选形参仅适用于一些较为分散并且不能确定调用者是否会提供值的形参。
+
+*&rect*
 
 (defun format (stream string &rest values) ...)
 (defun + (&rest numbers) ...)
 
 ** 关键字形参
+*&key*
 
 (defun foo (&key a b c) (list a b c))
 
 ** 混合不同的形参类型
+在单一函数里使用所有四种类型形参的情况虽然罕见，但也是可能的。
 
 (defun foo (x &optional y &key z) (list x y z))
 
@@ -63,7 +71,51 @@ RETURN-FROM
         (return-from foo (list i j))))))
 
 ** 作为数据的函数---高阶函数
+使用函数的主要方式是通过名字来调用它们。但有时将函数作为数据看待也是很有用的。例如，可以将一个函数作为参数传给另一个函数，从而能写出一个通用的排序函数，允许调用者提供一个比较任意两元素的函数，这样同样的底层算法就可以跟许多不同的比较函数配合使用了。类似地，回调函数(callback)和钩子(hook)也需要能够保存代码引用便于以后运行。由于函数已经是一种对代码比特进行抽象的标准方式，因此允许把函数视为数据也是合理的。
+
+在Lisp中，函数只是另一种类型的对象。在用DEFUN定义一个函数时，实际上做了两件事：创建一个新的函数对象以及赋予其一个名字。一个函数对象的实际表示，无论是有名的还是匿名的，都只是一些二进制数据---以原生编译的Lisp形式存在，可能大部分是由机器码构成。只需要知道如何保持它们以及需要时如何调用它们。
+
+特殊操作符 *FUNCTION* 提供了用来获取一个函数对象的方法。它接受单一实参并返回与该参数同名的函数。
+
+(defun foo (x) (* 2 x))
+
+(function foo)
+
+#'foo
+
+一旦得到了函数对象，就只剩下一件事可做了---调用它。CommonLisp提供了两个函数用来通过函数对象调用函数：funcall和apply，它们的区别仅在于如何获取传递给函数的实参。
+
+(defun plot (fn min max step)
+  (loop for i from min to max by step do
+    (loop repeat (funcall fn i) do (format t "*"))
+    (format t "~%")))
+
+(plot #'exp 0 4 1/2)
+
+(defvar plot-data '(fn min max step))
+
+(apply #'plot plot-data)
+
+(apply #'plot #'exp plot-data)
 
 ** 匿名函数
+觉得没有必要用DEFUN定义一个新函数时，可以使用一个lambda表达式创建匿名的函数。
 
+(lambda (parameters) body)
 
+(funcall #'(lambda (x y) (+ x y)) 2 3)
+((lambda (x y) (+ x y)) 2 3)
+
+lambda表达式的另一项重要用途是制作闭包(closure)，即捕捉了其创建时环境信息的函数。
+
+* 变量
+Common Lisp支持两种变量：词法(lexical)变量和动态(dynamic)变量。这两种变量类型分别对应于其他语言中的局部变量和全局变量，不过也只能说是大致相似。
+** 变量的基础知识
+和其他语言一样，Common Lisp中的变量是一些可以保存值的具名位置。但在CommonLisp中，变量并非像Java和C++等语言中那样带有确定的类型，也就是说不需要为每一个变量声明其可以保存对象的类型。相反，一个变量可以保存任何类型的值，并且这些值带有可用于运行期类型检查的类型信息。因此，Common Lisp是动态类型的---类型错误被动态地检测到。
+
+至少从概念上来说，Common Lisp中所有的值都是对象的引用。因此，将一个变量赋予新值就会改变该变量所指向的对象，而对之前被引用的对象却没有影响。尽管如此，如果一个变量保存了一个可变对象的引用，那么就可以用该引用来修改此对象，而这种改动将应用于任何带有相同对象引用的代码。
+
+而另一种已经用到的引入新变量的方法是定义函数形参。正如前一章所示，在用DEFUN来定义函数时，形参列表定义了当函数被调用时用来保存实参的变量。
+
+(let ((x 10) (y 20) z)
+  ...)
