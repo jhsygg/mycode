@@ -6,6 +6,91 @@
 #+LATEX_CLASS_OPTIONS:
 #+LATEX_HEADER:
 
+* 绪言：为什么是Lisp
+如果你认为编程最大的乐趣在于，可以用简明扼要的代码来清晰表达你的意图，完成许多事，那么使用Common Lisp编程可以说是用计算机所能做到的最有趣的事了。比起相当多的其他计算机语言，它可以让你更快地完成更多工作。
+** 为什么是Lisp
+"可编程的编程语言"
+** Lisp的诞生
+1956年John McCarthy,Lisp在1956年被设计用于“符号数据处理”，而Lisp这个名字本身就来源于其最擅长的工作：列表处理(LISt Processing)。
+** 本书面向的读者
+* 周而复始：REPL简介
+支持增量、交互式的开发风格，这是lisp编程所特有的。
+** 选择一个Lisp实现
+** 安装和运行Lisp in a Box
+** 放开思想：交互式编程
+** 体验REPL
+REPL读取、求值和打印loop
+** Lisp风格的"Hello, World“
+> "hello, world"
+"hello, world"
+> (format t "hello, world")
+hello, world
+NIL
+** 保存工作成果
+* 实践：简单的数据库
+** CD和记录
+(defun make-cd (title artist rating ripped)
+  (list :title title :artist artist :rating rating :ripped ripped))
+** 录入CD
+(defvar *db* nil)
+(defun add-record (cd) (push cd *db*))
+** 查看数据库的内容
+(defun dump-db () 
+  (format t "~{~{~a: ~10t~a~%~}~%~}" *db*))
+** 改进用户交互
+(defun prompt-for-cd ()
+  (make-cd
+    (prompt-read "Title")
+    (prompt-read "Artist")
+    (or (parse-integer (prompt-read "Rating") :junk-allowed t) 0)
+    (y-or-n-p "Ripped [y/n]: ")))
+
+(defun add-cds ()
+  (loop (add-record (prompt-for-cd))
+    (if (not (y-or-n-p "Another? [y/n]: ")) (return))))
+** 保存和加载数据库
+(defun save-db (filename)
+  (with-open-file (out filename
+                  :direction :output
+                  :if-exists :supersede)
+  (with-standard-io-syntax
+    (print *db* out))))
+将数据加载回数据库的函数其形式也差不多
+(defun load-db (filename)
+  (with-open-file (in filename)
+    (with-standard-io-syntax
+      (setf *db* (read in)))))
+** 查询数据库(p41)
+(defun select (selection-fn)
+  (remove-if-not selection-fn *db*))
+
+(defun where (&key title artist rating (ripped nil ripped-p))
+  #'(lambda (cd)
+    (and
+      (if title       (equal (getf cd :title) title) t)
+      (if artist      (equal (getf cd :artist) artist) t)
+      (if rating      (equql (getf cd :rating) rating) t)
+      (if ripped-p    (equal (getf cd :ripped) ripped) t))))
+** 更新已有的记录---WHERE再战江湖(p45)
+
+* 语法和语义
+** 括号里都可以有什么
+** 打开黑箱
+- 读取器
+- 求值器
+** S-表达式
+S-表达式的基本元素是列表(list)和原子(atom)。列表由括号所包围，并可包含任何数量的由空格所分隔的元素。原子是所有其他内容。列表元素本身也可以是S-表达式（换句话说，也就是原子或嵌套的列表)。
+** 作为Lisp形式的S-表达式
+** 函数调用
+(function-name argument*)
+** 特殊操作符
+Common Lisp中共有25个特殊操作符。
+(if test-form then-form [else-form])
+quote '
+** 宏
+** 真、假和等价
+NIL
+** 格式化Lisp代码
 * 函数
 就跟其他语言里一样,函数提供了用于 *抽象和功能化的基本方法* 。
 
@@ -36,7 +121,13 @@
 
 *&optional*
 
-(defun foo (a b &optional c d) (list a b c d))
+> (defun foo (a b &optional c d) (list a b c d))
+
+> (foo 1 2)
+(1 2 NIL NIL)
+
+> (foo 1 2 3)
+(1 2 3 NIL)
 
 (defun foo (a &optional (b 10)) (list a b))
 
@@ -60,9 +151,12 @@
 
 (defun foo (x &optional y &key z) (list x y z))
 
-** 函数返回值
+&optional 和&rest可以组合，但避免&optional和&key组合。
 
-RETURN-FROM
+** 函数返回值
+目前写出的所有函数使用了默认的返回值行为，即最后一个表达式的值被作为整个函数的返回值。这是从函数中返回值的最常见方式。
+
+RETURN-FROM 特殊操作符，它能够立即以任何值从函数中间返回。
 
 (defun foo (n)
   (dotimes (i 10)
@@ -71,11 +165,11 @@ RETURN-FROM
         (return-from foo (list i j))))))
 
 ** 作为数据的函数---高阶函数
-使用函数的主要方式是通过名字来调用它们。但有时将函数作为数据看待也是很有用的。例如，可以将一个函数作为参数传给另一个函数，从而能写出一个通用的排序函数，允许调用者提供一个比较任意两元素的函数，这样同样的底层算法就可以跟许多不同的比较函数配合使用了。类似地，回调函数(callback)和钩子(hook)也需要能够保存代码引用便于以后运行。由于函数已经是一种对代码比特进行抽象的标准方式，因此允许把函数视为数据也是合理的。
+使用函数的主要方式是通过名字来调用它们。但有时 *将函数作为数据看待* 也是很有用的。例如，可以将一个函数作为参数传给另一个函数，从而能写出一个通用的排序函数，允许调用者提供一个比较任意两元素的函数，这样同样的底层算法就可以跟许多不同的比较函数配合使用了。类似地，回调函数(callback)和钩子(hook)也需要能够保存代码引用便于以后运行。由于函数已经是一种对代码比特进行抽象的标准方式，因此允许把函数视为数据也是合理的。
 
 在Lisp中，函数只是另一种类型的对象。在用DEFUN定义一个函数时，实际上做了两件事：创建一个新的函数对象以及赋予其一个名字。一个函数对象的实际表示，无论是有名的还是匿名的，都只是一些二进制数据---以原生编译的Lisp形式存在，可能大部分是由机器码构成。只需要知道如何保持它们以及需要时如何调用它们。
 
-特殊操作符 *FUNCTION* 提供了用来获取一个函数对象的方法。它接受单一实参并返回与该参数同名的函数。
+特殊操作符 *FUNCTION* 提供了用来获取一个函数对象的方法。它接受单一实参并返回与该参数同名的函数。与#'等价。
 
 (defun foo (x) (* 2 x))
 
@@ -84,6 +178,8 @@ RETURN-FROM
 #'foo
 
 一旦得到了函数对象，就只剩下一件事可做了---调用它。CommonLisp提供了两个函数用来通过函数对象调用函数：funcall和apply，它们的区别仅在于如何获取传递给函数的实参。
+
+下面这个函数演示了FUNCALL的另一个更有建设性的用法。它接受一个函数对象作为实参，并使用实参函数在min和max之间以step为步长的返回值来绘制一个简单的ASCII式柱状图：
 
 (defun plot (fn min max step)
   (loop for i from min to max by step do
@@ -110,12 +206,1071 @@ lambda表达式的另一项重要用途是制作闭包(closure)，即捕捉了�
 
 * 变量
 Common Lisp支持两种变量：词法(lexical)变量和动态(dynamic)变量。这两种变量类型分别对应于其他语言中的局部变量和全局变量，不过也只能说是大致相似。
+许多含有变量的表达式都可以同时使用词法变量和动态变量，这样一来更令人困惑了。
 ** 变量的基础知识
-和其他语言一样，Common Lisp中的变量是一些可以保存值的具名位置。但在CommonLisp中，变量并非像Java和C++等语言中那样带有确定的类型，也就是说不需要为每一个变量声明其可以保存对象的类型。相反，一个变量可以保存任何类型的值，并且这些值带有可用于运行期类型检查的类型信息。因此，Common Lisp是动态类型的---类型错误被动态地检测到。
+和其他语言一样，Common Lisp中的变量是一些 *可以保存值的具名位置* 。但在CommonLisp中，变量并非像Java和C++等语言中那样带有确定的类型，也就是说不需要为每一个变量声明其可以保存对象的类型。相反，一个变量可以保存任何类型的值，并且这些值带有可用于运行期类型检查的类型信息。因此，Common Lisp是动态类型的---类型错误被动态地检测到。举个例子，假如将某个并非数字的对象传给了+函数，那么CommonLisp将会报类型错误。而另一方面，CommonLisp是一种强类型语言，因为所有类型错误都将被检测到---无法将一个对象作为其不属于的类型的实例来对待。
 
-至少从概念上来说，Common Lisp中所有的值都是对象的引用。因此，将一个变量赋予新值就会改变该变量所指向的对象，而对之前被引用的对象却没有影响。尽管如此，如果一个变量保存了一个可变对象的引用，那么就可以用该引用来修改此对象，而这种改动将应用于任何带有相同对象引用的代码。
+至少从概念上来说，Common Lisp中所有的值都是 *对象的引用* 。因此，将一个变量赋予新值就会改变该变量所指向的对象，而对之前被引用的对象却没有影响。尽管如此，如果一个变量保存了一个可变对象的引用，那么就可以用该引用来修改此对象，而这种改动将应用于任何带有相同对象引用的代码。
 
-而另一种已经用到的引入新变量的方法是定义函数形参。正如前一章所示，在用DEFUN来定义函数时，形参列表定义了当函数被调用时用来保存实参的变量。
+而另一种已经用到的引入新变量的方法是定义 *函数形参* 。正如前一章所示，在用DEFUN来定义函数时，形参列表定义了当函数被调用时用来保存实参的变量。例如，下列函数定义了三个变量x、y和z，用来保存其实参：
+
+(defun foo (x y z) (+ x y z))
+
+每当函数被调用时，Lisp就会创建新的绑定来保存由函数调用者所传递的实参。绑定代表了变量在运行期的存在。单个变量就是可以在程序源代码中所指出的那种东西。在程序运行过程中可以有多个不同的绑定，单个变量甚至可以同时带有多重绑定。例如，一个递归函数的形参会在第一次函数调用中被重新绑定。
+
+引入变量的另一种方式是使用 *LET特殊操作符* 。下面就是一个LET形式的结构：
+(let (variable*)
+  body-form*)
 
 (let ((x 10) (y 20) z)
   ...)
+
+函数形参和LET变量的 *作用域（变量名可用来引用该绑定的程序区域）* 被限定在引入该变量的形式之内，该形式即函数定义或LET，被称为绑定形式。你很快将看到，词法变量和动态变量使用两种略有不同的作用域机制，但两者的作用域都被界定在绑定形式之内。
+
+如果嵌套了引入同名变量的绑定形式，那么最内层的变量绑定将覆盖外层的绑定。
+
+(defun foo (x)
+  (format t "Parameter: ~a~%" x)
+  (let ((x 2))
+    (format t "Outer LET: ~a~%" x)
+      (let ((x 3))
+        (format t "Inner LET: ~a~%" x))
+      (format t "Outer LET: ~a~%" x))
+    (format t "Parameter: ~a~%" x))
+
+其他的绑定形式
+(dotimes (x 10) (format t "~d " x))
+
+另一个绑定形式是LET的变体：LET*。两者的区别在于，在一个LET中，被绑定的变量名只能用在LET的形式体之内---LET形式体中变量列表之后的那部分；但在一个LET*中，每个变量的初始值形式，都可以引用那些在变量列表中早先引入的变量。
+
+(let* ((x 10)
+      (y (+ x 10)))
+      (list x y))
+
+上一形式体，当然也可以用LET来实现：
+(let ((x 10))
+  (let ((y (+ x 10)))
+    (list x y)))
+
+** 词法变量和闭包
+默认情况下，CommonLisp中所有的绑定形式都将引入 *词法作用域* 变量。词法作用域的变量只能由那些在文本上位于绑定形式之内的代码所引用。那些曾经使用Java、C、Perl或者Python来编程的人们应该熟悉词法作用域，因为它们都提供词法作用域的局部变量。
+
+(let ((count 0)) #'(lambda () (setf count (1+ count))))
+
+这个匿名函数称为闭包，因为它“封闭包装”了由LET创建的绑定。
+
+正解闭包的关键在于，被捕捉的是绑定而不是变量的值。因此，一个闭包不仅可以访问它所闭合的变量的值，还可以对其赋予在闭包被调用时不断变化的新值。例如，可以像下面这样将前面的表达式所创建的闭包捕捉到一个全局变量里：
+
+(defparameter *fn* (let ((count 0)) #'(lambda () (setf count (1+ count)))))
+
+单一闭包可以简单地通过引用变量来闭合许多变量绑定，或是多个闭合可以捕捉相同的绑定，例如，下面的表达式返回由三个闭合所组成的列表，一个可以递增其所闭合的count绑定的值，另一个可以递减它，还有一个返回它的当前值。
+
+(let ((count 0))
+  (list 
+  #'(lambda () (incf count))
+  #'(lambda () (decf count))
+  #'(lambda () count)))
+
+** 动态变量
+
+Common Lisp 提供了两种创建变量的方式：defvar和defparameter。两种形式都接受一个变量名、一个初始值以及一个可选的y文档字符串。
+
+** 常量
+
+(defconstant name initial-value-form [documentation-string])
+
+** 赋值
+
+(setf place value)
+
+** 广义赋值
+
+当然，变量绑定并不是唯一可以保留值的位置，CommonLisp还支持复合数据结构，包括数组、哈希表、列表以及由用户定义的数据结构，所有这些都含有多个可用来保存值的位置。
+
+aref是数组访问函数，gethash做哈希表查找，而field可能是一个访问某个用户定义对象中名为field的成员函数。
+
+Simple variable:     (setf x 10)
+Array:               (setf (aref a 0) 10)
+Hash table:          (setf (gethash 'key hash) 10)
+Slot named 'field':  (setf (field o) 10)
+
+** 其他修改位置的方式
+
+incf和decf
+
+random
+
+push和pop
+
+pushnew
+
+rotatef和shiftf
+
+(rotatef a b) 等价于 (let ((tmp a)) (setf a b b tmp) nil)
+
+> (shiftf a b 10) 等价于(let ((tmp a)) (setf a b b 10) tmp)
+(B 10 A)
+
+* 宏：标准控制构造
+Lips的宏系统始终使它保持了在语言风格上的独特性。
+
+** WHEN 和 UNLESS
+
+(if condition then-form [else-form])
+
+condition被求值，如果其值非NIL，那么then-form会被求值并返回其结果。否则，如果有else-form，它将被求值并返回其结果。如果condition是NIL并且没有else-form，那么if返回NIL。
+
+WHEN
+
+(when (spam-p current-message)
+  (file-in-spam-folder current-message)
+  (update-spam-database current-message))
+
+如果它没有被内置到标准库中，你也可以像下面这样用一个宏来自己定义WHEN，这里用到了第3章中讨论的反引号：
+
+(defmacro when (condition &rest body)
+  `(if ,condition (progn ,@body)))
+
+与WHEN宏同系列的另一个宏是UNLESS，它取相反的条件，只有当条件为假时才求值其形式体。换句话说：
+
+(defmocro unless (condition &rest body)
+  `(if (not ,condition) (progn ,@body)))
+
+** COND
+
+CommonLisp提供的用于表达多重分支条件的宏COND。下面是它的基本结构：
+
+(cond
+  (test-1 form*)
+      .
+      .
+      .
+   (test-N form*))
+
+** AND、OR和NOT
+
+> (not nil)
+T
+
+>(not (= 1 1))
+NIL
+
+>(and (= 1 2) (= 3 3))
+NIL
+
+(or (= 1 2) (= 3 3))
+T
+
+** 循环
+
+循环构造是另外一类主要的控制构造。CommomLisp的循环机制，除了更加强大和灵活以外，还是一门关于宏所提供的“鱼和熊掌兼得”的编程风格的有趣课程。初看起来，Lisp的25个特殊操作符中没有一个能够直接支持结构化循环，所有的Lisp循环控制构造都是构建在一对提供原生goto机制的特殊操作符之上的宏。和许多好的抽象或句法一样，Lisp的循环宏构建在以那个两个特殊操作符为基础的一组分层抽象之上。
+
+底层（不考虑特殊操作符）是一个非常通用的循环构造DO。尽管非常强大，但DO和许多其他的通用抽象一样，在应用于简单情形时显得过于复杂。因此Lisp还提供了另外两个宏，DOLIST和DOTIMES。
+
+最后，LOOP宏提供了一种成熟的微型语言，它用一种非Lisp的类似英语（或至少类似Algol）的语言来表达循环构造。
+
+** DOLIST和DOTIMES
+
+(dolist (var list-form)
+  body-form*)
+
+>(dolist (x '(1 2 3)) (print x))
+1
+2
+3
+NIL
+
+在这种方式下，DOLIST这种形式本身求值为NIL。
+
+如果想在列表结束之前中断一个DOLIST循环，则可以使用RETURN。
+
+> (dolist (x '(1 2 3)) (print x) (if (evenp x) (return)))
+1
+2
+NIL
+
+DOTIMES是用于循环计数的高级循环构造，其基本模板和DOLIST非常相似。
+(dotimes (var count-form)
+  body-form*)
+
+>(dotimes (i 4) (print i))
+0
+1
+2
+3
+NIL
+和DOLIST一样，也可以使用RETURN来提前中断循环。
+
+> (dotimes (x 20)
+    (dotimes (y 20)
+      (format t "~3d " (* (1+ x) (1+ y))))
+    (format t "~%"))
+
+** DO
+
+(do (variable-definition*)
+    (end-test-form result-form*)
+  statement*)
+
+(do ((i 0 (1+ i)))
+    ((>= i 4))
+  (print i))
+
+(do ((n 0 (1+ n))
+    (cur 0 next)
+    (next 1 (+ cur next)))
+  ((= 10 n) cur))
+
+(do ()
+    ((> (get-universal-time) *some-future-date*))
+  (format t "Waiting~%")
+  (sleep 60))
+
+** 强大的LOOP
+
+(loop 
+  body-form*)
+
+(loop
+  (when (> (get-universal-time) *some-future-date*)
+    (return))
+  (format t "Waiting ~%")
+  (sleep 60)
+
+>(do ((name nil) (i 1 (i+ i)))
+    ((> i 10) (nreverse nums))
+  (push i nums))
+
+(1 2 3 4 5 6 7 8 9 10)
+
+> (loop for i from 0 to 10 collecting i)
+(1 2 3 4 5 6 7 8 9 10)
+
+下例可以对前十个平方数求和：
+> (loop for x from 1 to 10 summing (expt x 2))
+385
+
+这个用来统计一个字符串中元音字母的个数：
+>(loop for x across "the quick brown fox jumps over the lazy dog"
+  counting (find x "aeiou"))
+11
+
+下面的例子用来计算第11个斐婆那契数，它类似于前面使用DO循环的版本：
+>(loop for i below 10
+       and a = 0 then b
+       and b = 1 then (+ b a)
+       finally (return a))
+
+* 如何自定义宏
+
+作为语言的一部分，宏能够用于在核心语言和标准库之上创建抽象，从而使你更直接地表达想表达的事物。
+
+一但理解了宏与函数之间的区别，你就会发现豪门语言中宏的紧密集成所带来的巨大优势。
+
+** Mac的故事，只是一个故事
+
+** 宏展开期和运行期
+理解宏的关键在于必须清楚地知道那些生成代码的代码（宏）和那些最终构成程序的代码（所有其他内容）之间的区别。当编写宏时，你是在编写那些将被编译器用来生成代码并随后编译的程序。只有当所有的宏都被完全展开并且产生的代码被编译后，程序才可以实际运行。宏运行的时期被称为宏展开期(macro expansion time)，这和运行期(runtime)是不同的，后者是正常的代码（包括那些由宏生成的代码）实际运行的阶段。
+
+牢记这一区别很重要，因为运行在宏展开期的代码与那些运行在运行期的代码相比，它们的运行环境完全不同。也就是说，在宏展开期无法访问那些仅存在于运行期的数据。
+
+** DEFMACRO
+(defmacro name (parameter*)
+  "Optional documention string."
+  body-form*)
+
+和函数一样，宏由名字、形参列表、可选文档字符串以及Lisp表达式体所构成。
+
+宏可以使用Lisp的所有功能来生成其展开式，这意味着本意只能初步说明宏的具体功用。不过我可以描述一个通用的宏编写过程，它适用于从最简单至最复杂的所有宏。
+
+宏的工作是将宏形式（首元素为宏名的Lisp形式）转化成能做特定事情的代码。有时是从想要编写的代码开始来编写宏的，就是说从一个示例的宏形式开始。其他时候则是在连续几次编写了相同的代码模式并认识到通过抽象该模式可以使代码更清晰后，才开始决定编写宏的。
+
+总结起来，编写宏的步骤如下所示：
+- 编写示例的宏调用以及它应当展开成的代码，反之亦然；
+- 编写从示例调用的参数中生成手写展开式的代码；
+- 确保宏抽象不产生“泄漏”。
+
+** 示例宏: do-primes
+
+迭代在相继的素数上。
+
+首先需要两个工具函数：一个用来测试给定的数是否为素数，另一个用来返回大于或等于其实参的下一个素数。这两个函数都可以使用简单而低效的暴力手法来解决。
+
+(defun primep (number)
+  (when (> number 1)
+    (loop for fac from 2 to (isqrt number) never (zerop (mod number fac)))))
+
+(defun next-prime (number)
+  (loop for n from number when (primep n) return n))
+
+宏调用示例：
+(do-primes (p 0 19)
+  (format t "~d " p))
+
+如果没有do-primes宏，你可以用do(和前面定义的两个工具函数)来写出下面这个循环:
+
+(do ((p (next-prime 0) (next-prime (1+ p))))
+    ((> p 19))
+    (format t "~d " p))
+
+现在就可以开始编写将前者转化成后者的代码了。
+
+** 宏形参
+
+(defmacro do-primes (var-and-range &rest body)
+  (let ((var (first var-and-range))
+        (start (second var-and-range))
+	(end (third var-and-range)))
+  `(do ((,var (next-prime ,start) (next-prime (1+ ,var))))
+       ((> ,var ,end))
+      ,@body)))
+
+调用 (do-primes var-and-range &rest body)
+
+(defmacro do-primes ((var start end) &body body)
+  `(do ((,var (next-primes ,start) (next-primes (1+ ,var))))
+       ((> ,var ,end))
+     ,@body))
+
+调用 (do-primes (var start end) &body body)
+
+** 生成展开式
+
+|---------------------+----------------------------------------+------------------|
+| 反引用语法          | 等价的列表构造代码                     | 结果             |
+|---------------------+----------------------------------------+------------------|
+| `(a (+ 1 2) c)      | (list 'a '(+ 1 2) 'c)                  | (a (+ 1 2) c)    |
+| `(a ,(+ 1 2) c)     | (list 'a (+ 1 2) 'c)                   | (a 3 c)          |
+| `(a (list 1 2) c)   | (list 'a '(list 1 2) 'c)               | (a (list 1 2) c) |
+| `(a ,(list 1 2) c)  | (list 'a (list 1 2) 'c)                | (a (1 2) c)      |
+| `(a ,@(list 1 2) c) | (append (list 'a) (list 1 2) (list 'c) | (a 1 2 c)        |
+|---------------------+----------------------------------------+------------------|
+
+** 堵信漏洞
+** 超越简单宏
+* 实践：建立单元测试框架
+在本意里，你将编写代码开发一个简单的Lisp单元测试框架。
+
+该测试框架的主要设计目标是使其可以尽可能简单地增加新测试，运行多个测试套件，以及跟踪测试的失败。目前，你将集中于设计一个可以在交互开发期间使用的框架。
+
+一个自动测试框架的关键特性在于该框架应该能够告诉你是否所有的测试都通过了。当计算机可以处理得更快更精确时，你就不应该将时间花在埋头检查测试所输出的答案上。因此，每个测试用例必须是一个能产生布尔值的表达式---真或假，通过或失败。
+
+(= (+ 1 2) 3)
+(= (+ 1 2 3) 6)
+(= (+ -1 -3) -4)
+
+** 两个最初的尝试
+
+(defun test-+ ()
+  (and 
+    (= (+ 1 2) 3)
+    (= (+ 1 2 3) 6)
+    (= (+ -1 -3) -4)))
+
+知道具体的方法
+
+(defun test-+ ()
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ 1 2) 3) '(= (+ 1 2) 3))
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
+
+*~:[FAIL~;pass~]* 部分将导致FORMAT在其第一个格式实参为假时打印出FAIL，而在其他情况下为pass。
+
+** 重构
+
+我们真正所需要的编程方式应该是可以写出像第一个test-+那样能够返回单一的T或NIL值的高效函数，但同时它还可以像第二个版本那样能够报告单独测试用例的结果。就功能而言，由于第二个版本更接近于预期结果，所以最好是看看能否可以将某些烦人的重复消除掉。
+
+消除重复的FORMAT相似调用的最简单方法就是创建一个新函数。
+
+(defun report-result (result form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" result form))
+
+我写为
+(defun report-result (form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" form 'form))
+
+但还是原式合理，因为以后要使用result
+
+则新函数为
+
+(defun test-+ ()
+  (report-result (= (+ 1 2) 3) '(= (+ 1 2) 3))
+  (report-result (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
+  (report-result (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
+
+很容易就可写出一个宏来作这种转换  
+(defmacro check (form)
+  `(report-result ,form ',form))
+
+(defun test-+ ()
+  (check (= (+ 1 2) 3))
+  (check (= (+ 1 2 3) 6))
+  (check (= (+ -1 -3) -4)))
+
+既然不喜欢重复的代码，那为什么不将那些对check的重复调用也一并消除掉呢？你可以定义check来接受任意数量的形式并将它们中的每个都封装在一个对report-result的调用里。
+
+(defmacro check (&body forms)
+  `(progn
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
+
+(defun test-+ ()
+  (check
+    (= (+1 2) 3)
+    (= (+ 1 2 3) 6)
+    (= (+ -1 -3) -4)))
+
+** 修复返回值
+
+接下来可以修复test-+以使其返回值可以指示所有测试用例是否都通过了。由于check负责生成最终用来运行测试用例的代码，所以只需改变它来生成可以同时跟踪结果的代码就可以了。
+
+首先可以对report-result做一个小改变，以使其在报告时顺便返回测试用例结果。
+
+(defun report-result (result form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" result form)
+  result)
+
+我写成
+(defun report-result (form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" form 'form)
+  form)
+
+还是原式合理。
+
+现在report-result返回了它的测试用例结果，故而看起来只需将progn变成and就可以组合结果了。不幸的是，由于 *AND存在短路行为，即一旦某个测试用例失败了就跳过其余的测试* ，AND在本例中并不能完成你想要的事。另一方面，如果有一个像AND那样动作的操作符，同时又没有短路行为，那么就可以用它来代替progn，从而事情也就完成了。虽然CommonLisp并不提供这样一种构造，但你没有理由不能使用它：自己编写提供这一功能的宏是极其简单的。
+
+暂时把测试用例放在一边，需要的宏应如下所示，我们称其为combine-results.
+
+(combine-results
+  (foo)
+  (bar)
+  (baz))
+
+并且它应与下列形式等同：
+
+(let ((result t))
+  (unless (foo) (setf result nil))
+  (unless (bar) (setf result nil))
+  (unless (baz) (setf result nil))
+  result)
+
+编写这个宏唯一麻烦之处在于，需要在展开式中引入一个变量，即前面代码中的result。但正如前所述，在宏展开式中使用一个变量的字面名称会导致宏抽象出现漏洞，因此需要创建唯一的名字，这就需要用到 *with-gensyms* 了。可以像下面这样来定义combine-results:
+
+(defmacro combine-results (&body forms)
+  (with-gensyms (result)
+    `(let ((,result t))
+      ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
+      ,result)))
+
+现在可以通过简单地改变展开式用combine-results代替PROGN来修复check。
+
+(defmacro check (&body forms)
+  `(combine-results
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
+
+** 更好的结果输出
+
+由于只有一个测试函数，所以当前的结果输出是相当清晰的。如果一个特定的测试用例失败了，那么只需在check形式中找到那个测试用例并找出其失败原因即可。但如果编写了大量测试，可能就要以某种方式将它们组织起来，而不是将它们全部塞进一个函数里。例如，假设想要对"*"函数添加一些测试用例，则可以写一个新测试函数。
+
+(defun test-* ()
+  (check
+    (= (* 2 2) 4)
+    (= (* 3 5) 15)))
+
+现在有了两个测试函数，你可能还想用另一个函数来运行所有测试，这也相当简单。
+
+(defun test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+
+** 抽象诞生
+
+(defmacro deftest (name parameters &body body)
+  `(defun ,name ,parameters
+    (let ((*test-name* ',name))
+      ,@body)))
+
+(deftest test-+ ()
+  (check
+    (= (+ 1 2) 3)
+    (= (+ 1 2 3) 6)
+    (= (+ -1 -3) -4)))
+
+** 测试层次体系
+现在你可以用deftest代替defun来重新定义test-arithmetic
+
+(deftest test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+
+>(test-arithmetic)
+
+
+(deftest test-math ()
+  (test-arithmetic))
+
+>(test-math)
+
+** 总结
+
+你可以继续为这个测试框架添加更多特性。但作为一个以最小成本编写测试并可以在REPL轻松运行的框架来说，这已经是一个很好的开始了。这里给出完整的代码，全部只有26行：
+
+(defvar *test-name* nil)
+
+(defmacro deftest (name parameters &body body)
+  "Define a test function. Within a test function we can call other test tunctions or use 'check' to run individual test cases."
+  `(defun ,name ,parameters
+    (let ((*test-name* (append *test-name* (list ',name))))
+      ,@body)))
+
+(defmacro check (&body forms)
+  "Run each expression in 'forms' as a test case."
+  `(combine-results
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
+
+(defmacro combine-results (&body forms)
+  "Combine the results (as booleans) of evaluating 'forms' in order."
+  (with-gensyms (result)
+    `(let ((,result t))
+      ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
+      ,result)))
+
+(defun report-result (result form)
+  "Report the results of a single test case. Called by 'check'."
+  (format t "~:[FAIL~;pass~] ... ~a: ~a~%" result *test-name* form)
+  result)
+
+* 数字、字符和字符串
+
+尽管函数、变量、宏和25个特殊操作符组成了语言本身的基本构造单元，但程序的构造单元则是你所使用的数据结构。"数据的表现形式是编程的根本“。
+
+CommonLisp为现代语言中常见的大多数数据类型都提供了内置支持：数字(整数、浮点数和复数)、字符、字符串、数组（包括多维数组）、列表、哈希表、输入和输出流以及一种可移植地表示文件名的抽象。函数在Lisp中也是第一类(fist-class)数据类型。它们可以被保存在变量中，可以作为实参传递，可以作为实参传递，也可以作为返回值返回以及在运行期创建。
+
+从语言用户的角度来看，内置数据类型是由操作它们的函数所定义的。因此为了学习一个数据类型，你只需学会那些与之一起使用的函数就行了。
+
+本章将介绍内置的"标量"数据类型:数字、字符和字符串。
+
+** 数字
+
+** 字面数值
+
+** 初等数学
+
+基本的算术操作即加法、减法、乘法和除法，通过函数+、-、*、/支持所有不同类型的Lisp数字。使用超过两个参数来调用这其中的任何一个函数，这种作法将等价于在前两个参数上调用相同的函数而后再所得结果和其余参数上再次调用。
+
+*FLOOR* 向负无穷方向截断，返回小于或等于实参的最大整数；
+*CEILING* 向正无穷方向截断，返回大于或等于参数的最小整数；
+*TRUNCATE* 向零截断，对于正实参而言，它等价于FLOOR，而对于负实参则等价于CEILING；
+*ROUND* 舍入到最接近的整数上，如果参数刚好位于两个整数之间，它舍入到最接近的偶数上。
+
+*MOD* 和 *REM* 它返回两个实数截断相除得到的模和余数。这两个函数与 *FLOOR* 和 *TRUNCATE* 函数之间的关系如下所示：
+
+(+ (* (floor (/ x y)) y) (mod x y)) = x
+(+ (* (truncate (/x y)) y) (rem x y)) = x
+
+函数1+和1-提供了表示从一个数字增加或减少一个的简化方式。注意它们与宏INCF和DECF有所不同。1+和1-只是返回一个新值的函数，而INCF和DECF会修改一个位置。下面的恒等式显示了INCF/DECF、1+/1-和+/-之间的关系：
+
+(incf x) = (setf x (1+ x)) = (setf x (+ x 1))
+(decf x) = (setf x (1- x)) = (setf x (- x 1))
+(incf x 10) = (setf x (+ x 10))
+(decf x 10) = (setf x (- x 10))
+
+** 数值比较
+
+函数=是数值等价谓词。它用数学意义上的值来比较数字，而忽略类型上的区别。这样，=将把不同类型在数学意义上等价的值视其不等价。（但通用等价谓词EQUALP使用=来比较数字。)如果它以超过而个参数被调用，它将只有当所有参数具有相同值时才返回真。如下所示：
+
+(= 1 1)
+(= 10 20/2)
+(= 1 1.0 #c(1.0 0.0) #c(1 0))
+
+相反，只有当函数/=的全部实参都是不同值时才返回真。
+
+(/= 1 1)
+(/= 1 2)
+(/= 1 2 3)
+(/= 1 2 3 1)
+(/= 1 2 3 1.0)
+
+函数<、>、<=和>=检查有理数和浮点数（也就是实数)的次序。跟=和/=相似，这些函数也可以用超过两个参数来调用，这时每个参数都跟其右边的那个参数相比较。
+
+(< 2 3)
+(> 2 3)
+(> 3 2)
+(>= 2 3 4)
+(<= 2 3 4 3)
+
+要想选出上数字中最小或最大的那个，你可以使用函数MIN或MAX，其接受任意数量的实数参数并返回最小或最大值。
+
+(max 10 11) -> 11
+(min -12 -11) -> -12
+(max -1 2 -3) -> 2
+
+其他一些常用函数包括ZEROP、MINUSP和PLUSP，用来测试单一实数是否等于、小于或大于零。另外两个谓词EVENP和ODDP，测试单一整数参数是否是偶数或奇数。这些函数名称中的P后缀是一种谓词函数的标准命名约定，这些函数能够测试某些条件并返回一个布尔值。
+
+** 高等数学
+
+LOG EXP EXPT SIN COS TAN ASIN ACOS ATAN SINH COSH TANH 及ASINH ACOSH ATANH。
+
+** 字符
+
+字符不是数字。
+
+字符的读取语法很简单：#\后跟想要的字符。#\x就是字符x。任何字符都可以用在#\之后，包括"""、"("和空格这样的特殊字符。
+
+** 字符比较
+
+|------------+------------+-------------------|
+| 数值相似物 | 大小写相关 | 大小写无关        |
+|------------+------------+-------------------|
+| =          | CHAR=      | CHEAR-EQUAL       |
+| /=         | CHAR/=     | CHAR-NOT-EQUAL    |
+| <          | CHAR<      | CHAR-LESSP        |
+| >          | CHAR>      | CHAR-GREATERP     |
+| <=         | CHAR<=     | CHAR-NOT-GREATERP |
+| >=         | CHAR>=     | CHAR-NOT-LESSP    |
+|------------+------------+-------------------|
+
+** 字符串
+
+** 字符串比较
+
+   |------------+------------+---------------------|
+   | 数值相似物 | 大小写相关 | 大小写无关          |
+   |------------+------------+---------------------|
+   | =          | STRING=    | STRING-EQUAL        |
+   | /=         | STRING/=   | STRING-NOT-EQUAL    |
+   | <          | STRING<    | STRING-LESSP        |
+   | >          | STRING>    | STRING-GREATERP     |
+   | <=         | STRING<=   | STRING-NOT-GREATERP |
+   | >=         | STRING>=   | STRING-NOT-LESSP    |
+   |------------+------------+---------------------|
+
+* 集合
+
+和多数编程语言一样，Common Lisp也提供了能将多个值收集到单一对象的标准数据类型。每一种语言在处理集合问题上都稍有不同，但基本的集合类型通常都可归结为一个整数索引的数组类型，以及一个可将或多或少的任意关键字映射到值上的表类型。前者分别称为数组(array)、列表(list)或元组(tuple)，后者命名为哈希表(hash table)、关联数组(associative array)、映射表(map)和字典(dictionary)。
+
+** 向量
+
+向量是Common Lisp基本的整数索引集合，它们分为两大类。定长向量和变长向量。定长向量：一块数据头以及一段保存向量元素的连续内在区域。另一方面，变长向量它们抽象了实际存储，允许向量随着元素的增加和移除而增大和减小。
+
+你可以用函数VECTOR来生成含有特定值的定长向量，该函数接受任意数量的参数并返回一个新分配的含有那些参数的定长向量。
+
+(vector) -> #()
+(vector 1) -> #(1)
+(vector 1 2) -> #(1 2)
+
+语法#(...)是Lisp打印器和读取器使用的向量的字面表示形式，该语法可使你用PRINT打印并用READ读取，以此来保存并恢复向量。
+
+MAKE-ARRAY比VECTOR更加通用，因为它可以用来创建任何维度的数组以及定长和变长向量。MAKE-ARRAY的一个必要参数是一个含有数组的列表。
+
+(make-array 5 :initial-element nil)  ->  #(nil nil nil nil nil)
+
+(make-array 5 :initial-element 0)    ->  #()
+
+为了向可变向量的尾部添加一个元素，你可以使用函数vector-push。
+
+(defparameter *x* (make-array 5 :fill-pointer 0))
+
+(vector-push 'a *x*) -> 0
+*x* -> #(A)
+
+(vector-pop *x*)
+
+(make-array 5 :fill-pointer 0 :adjustable t)  ->  #()
+
+** 向量的子类型
+
+** 作为序列的向量
+
+两个最基本的序列函数是length，其返回一个序列的长度；elt，其允许通过一个整数索引来访问个别元素。
+
+(lenght *x*)  ->  3
+(elt *x* 0)   ->  1
+(elt *x* 1)   ->  2
+(elt *x* 2)   ->  3
+(elt *x* 3)   ->  error
+
+elt也是一个支持setf的位置，因此可以像这样来设置一个特定元素的值：
+(setf (elt *x* 0) 10)
+
+*x*  ->  #(10 2 3)
+
+** 序列迭代函数
+
+|------------+----------------+----------------------------|
+| name       | parameters     | return                     |
+|------------+----------------+----------------------------|
+| count      | 项和序列       | 序列中出现某项的次数       |
+| find       | 项和序列       | 项或NIL                    |
+| position   | 项和序列       | 序列中的索引NIL            |
+| remove     | 项和序列       | 项的实例被移除后的序列     |
+| substiture | 新项、项和序列 | 项的实项被新项替换后的序列 |
+|------------+----------------+----------------------------|
+
+(count 1 #(1 2 1 2 3 1 2 3 4))  -> 3
+(remove 1 #(1 2 1 2 3 1 2 3 4)) -> #(2 2 3 2 3 4)
+(remove 1 '(1 2 1 2 3 1 2 3 4)) -> (2 2 3 2 3 4)
+(remove #\a "foobarbaz")        -> "foobrbz"
+
+(substitute 10 1 #(1 2 1 2 3 1 2 3 4))  ->  #(10 2 10 2 3 10 2 3 4)
+(substitute 10 1 '(1 2 1 2 3 1 2 3 4))  ->  (10 2 10 2 3 10 2 3 4)
+(substitute #\x #\b "foobarbaz")        -> "fooxarxaz"
+(find 1 #(1 2 1 2 3 1 2 3 4))           -> 1
+(find 0 #(1 2 1 2 3 1 2 3 4))           -> NIL
+(position 1 #(1 2 1 2 3 1 2 3 4))       -> 0
+
+注意，remove和substitute总是返回与其序列实参相同类型的序列。
+
+标准序列函数关键字参数
+|--------+---------------------------------------------------------------------------+--------|
+| 参数   | 含义                                                                      | 默认值 |
+|--------+---------------------------------------------------------------------------+--------|
+| :test  | 两参数函数用来比较元素（或由:key函数解出的值）和项                        | EQL    |
+| :key   | 单参数函数用来从实际的序列元素中解出用于比较的关键字值NIL表示原样序列元素 | NIL    |
+| :start | 子序列的起始索引（含）                                         | 0      |
+| :end   | 子序列的终止索引（不含）。NIL表示到序列的结尾                             | NIL    |
+| :count | 数字代表需要移除或替换的元素个数，NIL代表全部。（仅用于remove和substitute) | NIL    |
+|--------+---------------------------------------------------------------------------+--------|
+
+** 高阶函数变体
+
+对于每个刚刚讨论过的函数，CommonLisp都提供了两种高阶函数变体，它们接受一个将在每个序列元素上调用的函数，以此来代替项参数。一组变体被命名为与基本函数相同的名字并带有一个追加的-IF。这些函数用于计数、查找、移除以及替换序列中那些函数参数返回真的元素。另一种变体以-IF-NOT后缀命名并计数、查找、移除以及替换函数不返回真的元素。
+
+(count-if #'evenp #(1 2 3 4 5))    -> 2
+(count-if-not #'evenp #(1 2 3 4 5))  -> 3
+(position-if #'(digit-char-p "abcd0001") -> 4
+(remove-if-not #'(lambda (x) (char= (elt x 0) #\f))
+  #("foo" "bar" "baz" "foom"))           -> #("foo" "foom")
+
+根据语言标准，这些-IF-NOT变体已经过时了。但这种过时通常被认为是由于标准本身欠考虑。不过，如果再次修订标准，更有可能被去掉的是-IF而非-IF-NOT系列。比如说有个叫REMOVE-IF-NOT和变体就比REMOVE-IF更经常使用。尽管它有一个听起来具有否定意义的名字，但REMOVE-IF-NOT实际上是一个具有肯定意义的变体---它返回满足的那些元素。
+
+除了:test，这些-IF和-IF-NOT变体都接受和它们的原始版本相同的关键字参数，:test不再被需要是因为主参数已经是一个函数了。通过使用:key参数，由:key函数所抽取出的值将代替实际元素传递给该函数。
+
+(count-if #'evenp #((1 a) (2 b) (3 c) (4 d) (5 e)) :key #'first)  -> 2
+(count-if-not #'evenp #((1 a) (2 b) (3 c) (4 d) (5 e)) :key #'first)  -> 2
+(remove-if-not #'alpha-char-p
+  #("foo" "bar" "baz" "1baz") :key #'(lambda (x) (elt x 0)))  ->  #("foo" "bar")
+
+(remove-duplicates #(1 2 1 2 3 1 2 3 4))  ->  #(1 2 3 4)
+
+** 整个序列上的操作
+
+copy-seq
+
+reverse
+
+(concatenate 'vector #(1 2 3) '(4 5 6))    -> #(1 2 3 4 5 6)
+(concatenate 'list #(1 2 3) '(4 5 6))      -> (1 2 3 4 5 6)
+(concatenate 'string "abc" '(#\d #\e #\f)) -> "abcdef"
+
+** 排序与合并
+
+函数SORT和STABLE-SORT提供了两种序列排序方式。它们都接受一个序列和一个由两个实参组成的谓词，返回该序列排序后的版本。
+
+(sort (vector "foo" "bar" "baz") #'string<)  -> #("bar" "baz" "foo")
+
+(merge 'vector #(1 3 5) #(2 4 6) #'<)  -> #(1 2 3 4 5 6)
+(merge 'list #(1 3 5) #(2 4 6) #'<) -> (1 2 3 4 5 6)
+
+** 子序列操作
+
+(subseq "foobarbaz" 3)  -> "barbaz"
+(subseq "foobarbaz" 3 6) -> "bar"
+
+** 序列谓词
+
+(every #'evenp #(1 2 3 4 5))  -> NIL
+(some #'evenp #(1 2 3 4 5))   -> T
+(notany #'evenp #(1 2 3 4 5)) -> NIL
+(notevery #'evenp #(1 2 3 4 5)) -> T
+
+(every #'> #(1 2 3 4) #(5 4 3 2))  -> NIL
+(some  #'> #(1 2 3 4) #(5 4 3 2))  -> T
+(notany #'> #(1 2 3 4) #(5 4 3 2)) -> NIL
+(notevery #'> #(1 2 3 4) #(5 4 3 2)) -> T
+
+** 序列映射函数
+
+(map 'vector #'* #(1 2 3 4 5) #(10 9 8 7 6))  -> #(10 18 24 28 30)
+
+(map-into a #'+ a b c)
+
+(reduce #'+ #(1 2 3 4 5 6 7 8 9 10))  -> 55
+
+** 哈希表
+
+Common Lisp提供的另一个通用集合类型是哈希表。与提供整数索引的数据结构的向量有所不同的是，哈希表允许你使用任意对象作为索引或键(key)。当向哈希表添加值时，可以把它保存在一个特定的键下。以后就可以使用相同的键来获取该值，或者可以将同一个键关联到一个新值上---每个键映射到单一值上。
+
+不带参数的make-hash-table将创建一个哈希表，其认定两个键等价，当且仅当它们在EQL的意义上是相同的对象。这是一个好的默认值，除非你想要使用字符串作为键，因为两个带有相同内容的字符串不一定是EQL等价的。
+
+函数gethash提供了对哈希表元素的访问。
+
+(defparameter *h* (make-hash-table))
+
+(gethash 'foo *h*)  -> NIL
+
+(setf (gethash 'foo *h*) 'quux)
+
+(gethash 'foo *h*)  -> QUUX
+
+* LISP名字的由来：列表处理
+
+** “没有列表”
+
+理解列表的关键在于，要理解它们在很大程度上是一种构建在更基本数据类型实例对象之上的描述。
+
+(cons 1 2)  ->  (1 . 2)
+
+点对单元中的两个值分别称为car和cdr，它们同时也是用来访问这两个值的函数名。
+
+(car (cons 1 2)) -> 1
+(cdr (cons 1 2)) -> 2
+
+car和cdr也都能够支持setf的位置，
+
+(defparameter *cons* (cons 1 2))
+*cons*  ->  (1 . 2)
+
+(setf (car *cons*) 10)  -> 10
+(setf (cdr *cons*) 20)  -> 20
+
+*cons*
+
+(10 . 20)
+
+** 函数式编程和列表(P143)
+
+函数式编程的本质在于，程序完全由没有副作用的函数组成，也就是说，函数完全基于其参数的值来计算结果。函数式风格的好处在于它使得程序更易于理解。
+
+** “破坏性”操作
+
+由于Lisp的函数式传统，修改已有对象的操作被称作是破坏性的(destructive)。
+
+** 组合回收性函数和共享结构
+
+** 列表处理函数
+
+first rest second tenth nth nthcdr 
+
+28个复合car/cdr函数则是另一个不量会用到的函数家族。每个函数都是通过将由最多四个A和D组成的序列放在C和R之间来命名的，其中每个A代表对CAR的调用而每个D代表对cdr的调用。因此我们可以得到：
+
+(caar list) = (car (car list))
+
+(cadr list) = (car (cdr list))
+
+(cadadr list) = (car (cdr (car (cdr list))))
+
+|-----------+-----------------------------------------------------------------------------------------------|
+| 函数      | 描述                                                                                          |
+|-----------+-----------------------------------------------------------------------------------------------|
+| last      | 返回列表的最后一个点对单元。带有一个整数参数时，返回最后n个点对单元                           |
+| butlast   | 返回列表的一个副本，最后一个点对单元除外。带有一个整数时，排除最后n个单元。                   |
+| nbutlast  | butlast的回收性版本。可能修改并返回其参数列表但缺少可靠的副作用                               |
+| ldiff     | 返回列表直到某个给定点对单元的副本                                                            |
+| tailp     | 返回真，如果给定对象是作为列表一部分的点对单元                                                |
+| list*     | 构造一个列表来保存除最后一个参数外的所有参数，然后让最后一个参数成为这个列表最后一个节点的CDR |
+|           | 换句话说，它组合了LIST和APPEND                                                                |
+| make-list | 构造一个n项的列表。该列表的初始元素是NIL或者通过:initial-element关键字参数所指定的值          |
+| revappend | reverse和append的组合。像reverse那样求逆第一个参数，再将其追加到第二个参数上                  |
+| nreconc   | revappend的回收性版本。像nreverse那样求逆第一个参数，再将其追加到第二个参数上。没有可靠的副作用 |
+| consp     | 用来测试一个对象是否为点对单元的谓词                                                            |
+| atom      | 用来测试一个对象是否不是点对单元的谓词                                                          |
+| listp     | 用来测试一个对象是否为点对单元或NIL的谓词                                                       |
+| NULL      | 用来测试一个对象是否为NIL的谓词。功能上等价于NOT但在测试空列表而非布尔假时文体上推荐使用        |
+|-----------+-----------------------------------------------------------------------------------------------|
+
+** 映射
+
+(mapcar #'(lambda (x) (* 2 x)) (list 1 2 3))  -> (2 4 6)
+(mapcar #'+ (list 1 2 3) (list 10 20 30)) ->(11 22 33)
+
+maplist也和mapcar较为相似，它们之间的区别在于maplist传递给函数的不是列表元素而是实际的点对单元。
+
+mapcan mapcon
+
+mapc mapl
+
+** 其他结构
+
+* 超越列表：点对单元的其他用法(P151)
+  
+  如同在前面章节里看到的，列表数据类型是由一组操作点对单元的函数描述的。另外，CommonLisp还提供了一些函数，它们允许你把点对单元构建出的数据结构看作树、集合及查询表。
+
+** 树
+
+copy-list 只复制那些构成列表结构的点对单元。
+
+copy-tree 将会为每个点对单元生成一个新的点对单元，并将它们以相同的结构连接在一起。
+
+** 集合
+
+集合也可以用点对单元来实现。事实上，你可以将任何列表都看作是集合，CommonLisp提供的几个函数可用于对列表进行集合论意义上的操作。
+
+可以使用函数adjion来构造集合。
+
+adjoin也接受:key和:test关键字参数。和cons一样，adjoin不会影响原先的列表---如果打算修改一个特定的列表，则需要将adjoin返回的值赋值到该列表所来自的位置上。pushnew修改宏可以自动做到这点。
+
+>(defparameter *set* ())
+*SET*
+>(adjoin 1 *set*)
+(1)
+>*set*
+NIL
+>(setf *set* (adjoin 1 *set*))
+(1)
+>(pushnew 2 *set*)
+(2 1)
+>*set*
+(2 1)
+>(pushnew 2 *set*)
+(2 1)
+
+member member-if member-if-not
+
+intersection union set-difference set-exclusive-or 这些函数中的每一人都接受两个列表以及:key和:test关键字参数，并返回一个新列表，其代表了在两个列表上进行适当的集合论操作所得的结果:intersection返回一个由两个参数中可找到的所有元素组成的列表。union返回一个列表，其含有来自两个参数的每个唯一元素的一个实例。set-exclusive-or则返回一个列表，其含有仅来自两个参数列表中的一个而不是两者的那些元素。
+
+最后函数subsetp接受两个列表以及通常的:key和:test关键字参数，并在第一个列表是第二个列表的一个子集时返回真，也就是说，第一个列表中的第一个元素也都存在于第二个列表中。
+
+>(subsetp '(3 2 1) '(1 2 3 4))
+T
+>(subsetp '(1 2 3 4) '(3 2 1))
+NIL
+
+** 查询表: alist和plist
+
+alist关联表，plist属性表。
+
+** destructuring-bind
+
+一个用于拆分列表的工具是destructuring-bind宏。这个宏提供了一种解构(destructure)任意列表的方式，这类似于宏形参列表分析它们的参数列表的方式。
+
+(destructuring-bind (parameter*) list
+  body-form*)
+
+>(destructuring-bind (x y z) (list 1 2 3)
+  (list :x x :y y :z z))
+
+(:X 1 :Y 2 :Z 3)
+
+* 文件和文件I/O(P160)
+
+CommonLisp为读写数据提供了一个流的抽象和一个称为路径名(pathname)的抽象，它们以一种与操作系统无关的方式来管理文件名。另外，CommonLisp还提供了其他一些只有Lisp才有的功能，比如读写S-表达式。
+
+** 读取文件数据
+最基本的文件I/O任务是读取文件的内容。可以通过OPEN函数获得一个流并从中读取文件的内容。默认情况下，OPEN返回一个基于字符的输入流，你可以将它传给许多函数以便读取文本中的一个或多个字符:READ-CHAR读取单个字符；READ-LINE读取一行文本，去掉行结束字符后作为一个字符串返回；而READ读取单一的S-表达式并返回一个LISP对象。当完成了对流的操作后，你可以使用CLOSE函数来关闭它。
+
+(open "~/code/lisp/name.txt")
+
+(let ((in (open "~/code/lisp/name.txt")))
+  (format t "~a~%" (read-line in))
+  (close in))
+
+如果你想打开一个可能不存在的文件而又不想让OPEN报错，那么可以使用关键字参数:if-does-not-exist来指定不同的行为。三个可能的值是:error, :create, NIL。
+
+(let ((in (open "~/code/lisp/name.txt" :if-does-not-exist nil)))
+  (when in
+    (format t "~a~%" (read-line in))
+    (close in)))
+
+打印文件的所有行：
+(let ((in (open "" :if-does-not-exist nil)))
+  (when in
+    (loop for line = (read-line in nil)
+      while line do (format t "~a~%" line))
+    (close in)))
+
+** 读取二进制数据
+
+READ-BYTE
+
+** 批量读取
+
+READ-SEQUENCE
+
+** 文件输出
+
+(open "~/code/lisp/name.txt" :direction :output :if-exists :supersede)
+
+write-char会向流中写入一个单一字符；write-line写一个字符串并紧跟一个换行。write-string定一个字符串而不会添加任何行结束符。有两个不同的函数可以只打印一个换行:TERPRI是“终止打印”(terminate print)的简称，即无条件也打印一个换行字符；presh-line打印一个换行字符，除非该流已经在一行的开始处。
+
+** 关闭文件
+
+CommonLisp提供了一个构建在UNWIND-PROTECT之上的宏WITH-OPEN-FILE来封装这一模式。
+
+(with-open-file (stream-var open-argument*)
+  body-form*)
+
+>(with-open-file (stream "~/code/lisp/name.txt")
+    (format t "~a~%" (read-line stream)))
+
+为了创建一个新文件，你可以这样写。
+(with-open-file (stream "~/code/lisp/name.txt" :direction :output)
+  (format stream "Some text."))
+
+** 文件名
+
+** 路径名如何表示文件名
+
+路径名是一种使用6个组件来表示文件名的结构化对象：主机(host)、设备(device)、目录(directory)、名称(name)、类型(type)以及版本(version)。这些组件的多数都接受原子值，通常是字符串。只有目录组件有其进一步的结构，含有一个目录名(作为字符串)的列表，其中带有关键字:absolute或:relative作为前缀。
+
+pathname-directory pathname-name pathname-type
+
+pathname-host pathname-device pathname-version
+
+directory-namestring file-namestring
+
+(namestring #p"/foo/bar/baz.txt")              ->   "/foo/bar/baz.txt"
+(directory-namestring #p"/foo/bar/baz.txt")    ->   "/foo/bar/"
+(file-namestring #p"/foo/bar/baz.txt")         ->   "baz.txt"
+
+** 构造新路径名
+
+使用make-pathname
+
+(make-pathname
+  :directory '(:absolute "foo" "bar")
+  :name "baz"
+  :type "txt")    ->    #p"/foo/bar/baz.txt"
+
+(make-pathname :device "c" :directory '(:absolute "foo" "bar") :name "bar")
+
+(make-pathname :type "html" :defaults input-file)
+
+(make-pathname :directory '(:relative "backups")
+                            :defaults #p"/foo/bar/baz.txt")  ->  #p"backups/baz.txt"
+
+merge-pathnames接受两个路径名并合并它们，用来自第二个路径名的对应值填充第一个路径名中的任何NIL组件，这和make-pathname使用来自:defaults参数的组件来填充任何未指定的组件非常相似。
+
+(merge-pathname #p"foo/bar.html" #p"www/html/")    ->    #p"/www/html/foo/bar.html"
+
+(merge-pathname #p"foo/bar.html" #p"htnml/")       ->    #p"html/foo/bar.html"
+
+为了反转这一过程以便获得一个相对于特定根目录的文件名，你可以使用函数enough-namestring，这很有用。
+
+(enough-namestring #p"/www/html/foo/bar.html" #p"/www/")    ->    "html/foo/bar.html"
+
+随后可以组合enough-namestring和merge-pathnames来创建一个表达式相同名字但却在不同根目录中的路径名。
+
+(merge-pathnames
+  (enough-namestring #p"/www/html/foo/bar/baz.html" #p"/www/")
+  #p"/www-backups/")    ->    #p"/www-backups/html/foo/bar/baz.html"
+
+(make-pahtname :name "foo" :type "txt")    ->    #p"foo.txt"
+
+(merge-pathnames #p"foo txt")    ->    #p"~/code/lisp/foo.txt"
+
+** 目录名的两种表示方法
+** 与文件系统交互
+** 其他I/O类型
+
+*string-stream* 从一个字符串中读取或写入数据，你可以使用函数make-string-input-stream和make-string-output-stream来创建string-stream
+
+make-string-input-stream接受一个字符串以及可选的开始和结尾指示符来鉴定字符串中数据应被读取的区域，然后返回一个可被传递到任何诸如READ-CHAR、read-line或read这些基于字符的输入函数中的字符流。
+
+类似地，make-string-output-stream创建一个流，其可被用于format、print、write-chae以及write-line等。
+
+* 实践：可移植路径名库
+
+
+

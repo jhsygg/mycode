@@ -1,0 +1,53 @@
+; SLIME 2015-05-20
+CL-USER> 
+; No value
+CL-USER> (defun fibbb (n)
+	   (fibb (- n 1)))
+; in: DEFUN FIBBB
+;     (FIBB (- N 1))
+; 
+; caught STYLE-WARNING:
+;   undefined function: FIBB
+; 
+; compilation unit finished
+;   Undefined function:
+;     FIBB
+;   caught 1 STYLE-WARNING condition
+FIBBB
+CL-USER> (defun fibbb (n)
+	   (+ 1 fibb (- n 1)))
+
+;     (+ 1 FIBB (- N 1))
+; --> + 
+; ==>
+;   (+ 1 FIBB)
+; 
+; caught WARNING:
+;   undefined variable: FIBB
+; 
+; compilation unit finished
+;   Undefined variable:
+;     FIBB
+;   caught 1 WARNING condition
+STYLE-WARNING: redefining COMMON-LISP-USER::FIBBB in DEFUN
+FIBBB
+CL-USER> (fibbb 7)
+; Evaluation aborted on #<UNBOUND-VARIABLE FIBB {1002EB1DF3}>.
+CL-USER> (defun find-first-odd (x)
+  (cond ((null x) nil)
+	((oddp (first x)) (first x))
+	(t (find-first-odd (rest x)))))
+FIND-FIRST-ODD
+CL-USER> (find-first-odd '(2 4 6 7 8 9 10))
+7
+CL-USER> (find-first-odd '(2 4 6 8 9 10))
+9
+CL-USER> (defun last-element (x)
+  (cond ((null x) x)
+	(t (last-element (rest x)))))
+LAST-ELEMENT
+CL-USER> (last-element '(1 2 3 4))
+NIL
+CL-USER> (defun last-element (x)
+	   (cond ((null (cdr x)) x)
+		 (t (last-element (rest x)))))
